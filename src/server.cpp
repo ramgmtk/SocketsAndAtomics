@@ -52,6 +52,23 @@ int main(int argc, char* argv[]) {
     } else {
         std::cout << "Listening...\n";
     }
+    //create a socket that is read to accept a connection
+    SOCKET AcceptSocket;
+    std::cout << "Server: Waiting for client to connect...\n";
+    //run a loop to check for connection
+    while(true) {
+        AcceptSocket = SOCKET_ERROR;
+        while (AcceptSocket == SOCKET_ERROR) {
+            AcceptSocket = accept(m_socket, NULL, NULL);
+        }
+        //transfer control from temporary socket to the original socket, m_socket, and stop checking for connection.
+        std::cout << "Client Connected." << std:: endl;
+        m_socket = AcceptSocket;
+        break;
+    }
+
+    closesocket(m_socket);
+    WSACleanup();
     system("pause");
     return 0;
 }
