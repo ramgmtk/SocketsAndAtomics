@@ -1,5 +1,6 @@
 #include <iostream>
 #include <WinSock2.h>
+#include <windows.h>
 //cred to websute https://www.tenouk.com/Winsock/Winsock2example2.html
 
 int main(int argc, char* argv[]) {
@@ -28,12 +29,13 @@ int main(int argc, char* argv[]) {
     clientService.sin_port = htons(portno);
 
     //establish connection
-    if (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
+    std::cout << "Attempting to connect to server..." << std::endl;
+    while (connect(m_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
         std::cout << "Client: connect failure." << std::endl;
-        WSACleanup();
-        return -1;
+        Sleep(3000);
+        std::cout << "Attempting Reconnect..." << std::endl;
     }
-
+    std::cout << "Successsfully connected to server." <<std::endl;
     //send a test message
     int bytesSent;
     int bytesRecv = SOCKET_ERROR;
