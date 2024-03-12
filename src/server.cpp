@@ -1,9 +1,12 @@
 #include <iostream>
 #include <stdio.h>
+#include <windows.h>
 //help from user fpiette https://stackoverflow.com/questions/67726142/how-can-i-use-sys-socket-h-on-windows
 #include <winsock2.h>
 
 //credit for help understanding winssock2 https://www.tenouk.com/Winsock/Winsock2example2.html
+
+DWORD WINAPI foo(void* lpParam);
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -69,6 +72,16 @@ int main(int argc, char* argv[]) {
 
     closesocket(m_socket);
     WSACleanup();
+
+    HANDLE hTA[1];
+    hTA[0] = CreateThread(NULL, 0, foo, NULL, 0, NULL);
+    WaitForMultipleObjects(1, hTA, TRUE, INFINITE);
+
     system("pause");
+    return 0;
+}
+
+DWORD WINAPI foo(void* lpParam) {
+    std::cout << "Thread Hello World" << std::endl;
     return 0;
 }
