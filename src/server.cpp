@@ -4,9 +4,17 @@
 //help from user fpiette https://stackoverflow.com/questions/67726142/how-can-i-use-sys-socket-h-on-windows
 #include <winsock2.h>
 
+#define MAX_THREADS 2
+#define OPERATIONS 100000
 //credit for help understanding winssock2 https://www.tenouk.com/Winsock/Winsock2example2.html
 
-DWORD WINAPI foo(void* lpParam);
+DWORD WINAPI accept_clients(void* lpParam);
+DWORD WINAPI prep_clients(void* lpParam);
+
+struct socketStruct {
+    SOCKET* sArray;
+    SOCKET* mSocket;
+};
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -55,33 +63,72 @@ int main(int argc, char* argv[]) {
     } else {
         std::cout << "Listening...\n";
     }
-    //create a socket that is read to accept a connection
-    SOCKET AcceptSocket;
-    std::cout << "Server: Waiting for client to connect...\n";
-    //run a loop to check for connection
-    while(true) {
-        AcceptSocket = SOCKET_ERROR;
-        while (AcceptSocket == SOCKET_ERROR) {
-            AcceptSocket = accept(m_socket, NULL, NULL);
-        }
-        //transfer control from temporary socket to the original socket, m_socket, and stop checking for connection.
-        std::cout << "Client Connected." << std:: endl;
-        m_socket = AcceptSocket;
-        break;
+    //create a socket array to handle accepting multiple clients that is read to accept a connection
+    SOCKET socketArray[MAX_THREADS];   
+    HANDLE hThreadArray[MAX_THREADS];
+    DWORD dThreadIdArray[MAX_THREADS];
+
+    socketStruct socketPass;
+    socketPass.sArray = socketArray;
+    socketPass.mSocket = &m_socket;
+    hThreadArray[0] = CreateThread(NULL, 0, accept_clients, &socketPass, 0, &dThreadIdArray[0]);
+    //wait for client connections
+    std::cout << "Server: Waiting for clients to connect...\n";
+    WaitForSingleObject(hThreadArray[0], INFINITE);
+    CloseHandle(hThreadArray[0]);
+
+    //prompt clients to prepare them
+    for (int i = 0; i < MAX_THREADS; i++) {
+        hThreadArray[0] = CreateThread(NULL, 0, prep_clients, &socketArray[i], 0, &dThreadIdArray[i]);
     }
+    WaitForMultipleObjects(MAX_THREADS, hThreadArray, TRUE, INFINITE);
 
-    closesocket(m_socket);
+    //close sockets and close threads
+    for (int i = 0; i < MAX_THREADS; i++) {
+        m_socket = socketArray[i];
+        closesocket(m_socket);
+        //CloseHandle(hThreadArray[i]);
+    }
+    //closesocket(m_socket);
     WSACleanup();
-
-    HANDLE hTA[1];
-    hTA[0] = CreateThread(NULL, 0, foo, NULL, 0, NULL);
-    WaitForMultipleObjects(1, hTA, TRUE, INFINITE);
 
     system("pause");
     return 0;
 }
 
-DWORD WINAPI foo(void* lpParam) {
-    std::cout << "Thread Hello World" << std::endl;
+DWORD WINAPI accept_clients(void* lpParam) {
+    socketStruct* sPass = (socketStruct*)lpParam;
+    //run a loop to check for connection
+    for (int i = 0; i < MAX_THREADS; i++) {
+        while(true) {
+           sPass->sArray[i] = SOCKET_ERROR;
+            while (sPass->sArray[i] == SOCKET_ERROR) {
+                sPass->sArray[i] = accept(*sPass->mSocket, NULL, NULL);
+            }
+            std::cout << "Clients Connected: " << i + 1 << std:: endl;
+            //Receive message from incoming client.
+            int bytesRecv = SOCKET_ERROR;
+            char recvbuf[200] = "";
+            while (bytesRecv == SOCKET_ERROR) {
+                bytesRecv = recv(sPass->sArray[i], recvbuf, 32, 0);
+                if (bytesRecv < 0) break;
+                else {
+                    std::cout << "Client " << i + 1 << " message: " << recvbuf << std::endl;
+                }
+            }
+             //transfer control from temporary socket to the original socket, m_socket, and stop checking for connection.
+            //m_socket = AcceptSocket;
+            break;
+        }
+    }
+    return 0;
+}
+
+DWORD WINAPI prep_clients(void* lpParam) {
+    SOCKET* sClientSocket = (SOCKET*) lpParam;
+    int bytesSent;
+    char sendbuf[200] = "Server: Client enter any key to continue.\n";
+    bytesSent = send(*sClientSocket, sendbuf, strlen(sendbuf), 0);
+    std::cout << "Server: send() - Bytes Sent: " << bytesSent << std::endl;
     return 0;
 }
